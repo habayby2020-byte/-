@@ -1,0 +1,48 @@
+name: Extract Astro archive
+
+on:
+  push:
+    paths:
+      - 'astro-tv-app.zip'
+      - '.github/workflows/extract-archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify archive and extract files
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="astro-tv-app.zip"
+          test -f "$ARCHIVE" || { echo "::error::Archive not found: $ARCHIVE"; exit 1; }
+          command -v unzip >/dev/null
+          echo "Archive contents:"
+          unzip -Z1 "$ARCHIVE"
+          # Reject absolute paths and parent-directory traversal before extraction.
+          if unzip -Z1 "$ARCHIVE" | grep -E '(^/|(^|/)\.\.(/|$))'; then
+            echo "::error::Unsafe path detected in ZIP archive."
+            exit 1
+          fi
+          mkdir -p extracted
+          unzip -oq "$ARCHIVE" -d extracted
+          echo "Extracted files:"
+          find extracted -type f -print | sort
+          echo "File count: $(find extracted -type f | wc -l)"
+          echo "APK files are only extracted as files; none are installed, launched, or executed."
+
+      - name: Upload extracted project files
+        uses: actions/upload-artifact@v4
+        with:
+          name: astro-tv-app-extracted-files
+          path: extracted/
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 14
