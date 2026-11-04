@@ -1,0 +1,25 @@
+name: Unpack source archive
+on:
+  push:
+    paths:
+      - "astro-tv-app.zip"
+permissions:
+  contents: write
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Extract source files (without APK build workflow)
+        run: |
+          unzip -q astro-tv-app.zip -d .
+          rm -f astro-tv-app.zip
+          rm -f .github/workflows/build-apk.yml
+          rm -f .github/workflows/unpack-source.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Extract new source project files"
+          git push
