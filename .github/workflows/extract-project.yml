@@ -8,7 +8,7 @@ on:
       - ".github/workflows/extract-project.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   extract:
@@ -24,12 +24,29 @@ jobs:
           ZIP="astra-tv-app-7.zip"
           test -f "$ZIP" || { echo "::error::Missing $ZIP"; exit 1; }
           unzip -t "$ZIP"
+          rm -rf extracted-project
           mkdir -p extracted-project
           unzip -oq "$ZIP" -d extracted-project
           echo "Extracted project structure:"
-          find extracted-project -maxdepth 4 -type f -print | sort | head -300
+          find extracted-project -maxdepth 6 -type f -print | sort | head -500
+          echo "Total extracted files:"
+          find extracted-project -type f | wc -l
 
-      - name: Upload extracted project
+      - name: Publish extracted files into repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A extracted-project
+          if git diff --cached --quiet; then
+            echo "No extracted-file changes to publish."
+          else
+            git commit -m "Publish extracted desktop project files"
+            git push
+          fi
+
+      - name: Upload extracted project archive as backup
         uses: actions/upload-artifact@v4
         with:
           name: extracted-desktop-project
