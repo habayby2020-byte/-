@@ -22,6 +22,7 @@
 <div class="hud" id="hud">الاتصال جاهز — بانتظار ربط الأزرار من كودك<span class="pulse"></span></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="./astro-control-client.js"></script>
 <script>
 /* =====================================================================
    الدوال الجاهزة للعبة — نادِها من داخل KEY_ACTIONS / KEY_RELEASE تبعك
@@ -254,7 +255,19 @@ const PlayerMove={
     if(a){ swingAnchor=a; ropeLen=Math.hypot(a.x-player.x,a.y-player.y,a.z-player.z); swinging=true; player.grounded=false; ropeLine.visible=true; }
   }
 };
+
 window.PlayerMove=PlayerMove;
+
+// ربط أزرار Astro TV مباشرة بحركة اللعبة.
+if (window.AstroControl) {
+  AstroControl.on('gamepad.dpad.up',    { down: () => PlayerMove.start('forward'), up: () => PlayerMove.stop('forward') });
+  AstroControl.on('gamepad.dpad.down',  { down: () => PlayerMove.start('back'),    up: () => PlayerMove.stop('back') });
+  AstroControl.on('gamepad.dpad.left',  { down: () => PlayerMove.start('left'),    up: () => PlayerMove.stop('left') });
+  AstroControl.on('gamepad.dpad.right', { down: () => PlayerMove.start('right'),   up: () => PlayerMove.stop('right') });
+  AstroControl.on('gamepad.action.right', { down: () => PlayerMove.sprintOn(), up: () => PlayerMove.sprintOff() });
+  AstroControl.on('gamepad.action.bottom', { down: () => PlayerMove.jump() });
+  AstroControl.on('gamepad.action.top', { down: () => PlayerMove.swingToggle() });
+}
 window.addEventListener('message',(ev)=>{ const d=ev.data; if(d&&d.__gameInput&&d.payload&&d.payload.action&&PlayerMove[d.payload.action]) PlayerMove[d.payload.action](d.payload.arg); });
 
 // ---------- camera (third-person chase) ----------
