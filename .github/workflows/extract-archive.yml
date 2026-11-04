@@ -41,7 +41,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The archive's build workflow is kept out of this automated commit
+          # because GitHub App tokens cannot create workflow files.
+          rm -rf extracted/.github
           cp -a extracted/. .
+          rm -rf extracted
           git add -A -- .
           git reset -- astro-tv-app.zip
           if ! git diff --cached --quiet; then
