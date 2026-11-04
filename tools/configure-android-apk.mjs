@@ -23,7 +23,7 @@ for (const [source, filename] of plugins) {
   const sourcePath = path.join(root, source);
   if (!fs.existsSync(sourcePath)) throw new Error('Missing native plugin source: ' + source);
   const destination = path.join(javaDir, filename);
-  const java = fs.readFileSync(sourcePath, 'utf8').replace(/^package\\s+com\\.yourapp\\s*;[^\\n]*/m, 'package ' + packageName + ';');
+  const java = fs.readFileSync(sourcePath, 'utf8').replace(/^package\s+com\.yourapp\s*;[^\n]*/m, 'package ' + packageName + ';');
   if (!java.startsWith('package ' + packageName + ';')) {
     throw new Error('Could not set Android package for ' + filename);
   }
@@ -52,21 +52,21 @@ const imports = [
 ];
 for (const line of imports) {
   if (!main.includes(line)) {
-    const packageLine = main.match(/^package [^;]+;\\s*$/m);
+    const packageLine = main.match(/^package [^;]+;\s*$/m);
     if (!packageLine) throw new Error('MainActivity package declaration not found');
-    main = main.replace(packageLine[0], packageLine[0] + '\\n' + line);
+    main = main.replace(packageLine[0], packageLine[0] + '\n' + line);
   }
 }
 if (!main.includes('registerPlugin(MiracastPresentationPlugin.class)')) {
-  const onCreate = /@Override\\s+public void onCreate\\(Bundle savedInstanceState\\)\\s*\\{([\\s\\S]*?)\\n\\s*\\}/m;
+  const onCreate = /@Override\s+public void onCreate\(Bundle savedInstanceState\)\s*\{([\s\S]*?)\n\s*\}/m;
   if (onCreate.test(main)) {
     main = main.replace(onCreate, (match, body) =>
-      match.replace(body, '\\n        registerPlugin(MiracastPresentationPlugin.class);\\n        registerPlugin(InstalledAppsPlugin.class);\\n        registerPlugin(DeviceInfoPlugin.class);' + body)
+      match.replace(body, '\n        registerPlugin(MiracastPresentationPlugin.class);\n        registerPlugin(InstalledAppsPlugin.class);\n        registerPlugin(DeviceInfoPlugin.class);' + body)
     );
   } else {
-    const classOpen = /public class MainActivity extends BridgeActivity\\s*\\{/;
+    const classOpen = /public class MainActivity extends BridgeActivity\s*\{/;
     if (!classOpen.test(main)) throw new Error('Unexpected MainActivity template; refusing unsafe patch');
-    main = main.replace(classOpen, match => match + '\\n    @Override\\n    public void onCreate(Bundle savedInstanceState) {\\n        registerPlugin(MiracastPresentationPlugin.class);\\n        registerPlugin(InstalledAppsPlugin.class);\\n        registerPlugin(DeviceInfoPlugin.class);\\n        super.onCreate(savedInstanceState);\\n    }');
+    main = main.replace(classOpen, match => match + '\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(MiracastPresentationPlugin.class);\n        registerPlugin(InstalledAppsPlugin.class);\n        registerPlugin(DeviceInfoPlugin.class);\n        super.onCreate(savedInstanceState);\n    }');
   }
 }
 fs.writeFileSync(mainActivity, main, 'utf8');
@@ -74,9 +74,9 @@ fs.writeFileSync(mainActivity, main, 'utf8');
 const manifestPath = path.join(appDir, 'src/main/AndroidManifest.xml');
 let manifest = fs.readFileSync(manifestPath, 'utf8');
 if (!manifest.includes('<queries>')) {
-  const applicationTag = manifest.match(/\\s*<application\\b/);
+  const applicationTag = manifest.match(/\s*<application\b/);
   if (!applicationTag) throw new Error('AndroidManifest.xml has no application element');
-  const queries = '\\n    <queries>\\n        <intent>\\n            <action android:name="android.intent.action.MAIN" />\\n            <category android:name="android.intent.category.LAUNCHER" />\\n        </intent>\\n    </queries>\\n';
+  const queries = '\n    <queries>\n        <intent>\n            <action android:name="android.intent.action.MAIN" />\n            <category android:name="android.intent.category.LAUNCHER" />\n        </intent>\n    </queries>\n';
   manifest = manifest.replace(applicationTag[0], queries + applicationTag[0]);
 }
 fs.writeFileSync(manifestPath, manifest, 'utf8');
@@ -85,10 +85,10 @@ const gradlePath = path.join(appDir, 'build.gradle');
 if (!fs.existsSync(gradlePath)) throw new Error('android/app/build.gradle was not found');
 let gradle = fs.readFileSync(gradlePath, 'utf8');
 if (!gradle.includes('androidx.webkit:webkit:')) {
-  if (/dependencies\\s*\\{/.test(gradle)) {
-    gradle = gradle.replace(/dependencies\\s*\\{/, match => match + '\\n    implementation "androidx.webkit:webkit:1.10.0"');
+  if (/dependencies\s*\{/.test(gradle)) {
+    gradle = gradle.replace(/dependencies\s*\{/, match => match + '\n    implementation "androidx.webkit:webkit:1.10.0"');
   } else {
-    gradle += '\\n\\ndependencies { implementation "androidx.webkit:webkit:1.10.0" }\\n';
+    gradle += '\n\ndependencies { implementation "androidx.webkit:webkit:1.10.0" }\n';
   }
 }
 fs.writeFileSync(gradlePath, gradle, 'utf8');
