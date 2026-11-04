@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, Package, Search, Sparkles, Code2, Star, WifiOff } from 'lucide-react';
+import { ArrowRight, Package, Search, Sparkles, Code2, Star, WifiOff, Smartphone } from 'lucide-react';
 import { useWindowManager } from '../../context/WindowManagerContext';
 import { AppId, PinnedHomeApp } from '../../types/os';
 import { ExplorerIcon, BrowserIcon, SettingsIcon, NotepadIcon, CalculatorIcon, DiagnosticsIcon } from '../icons/WinIcons';
@@ -56,7 +56,7 @@ const StoreCard: React.FC<{
 );
 
 export const AppsGridScreen: React.FC = () => {
-  const { openApp, goBack, installedApps, appsApiStatus, isHomePinned, toggleHomePinned } = useWindowManager();
+  const { openApp, openAndroidApps, goBack, installedApps, appsApiStatus, isHomePinned, toggleHomePinned } = useWindowManager();
   const [query, setQuery] = useState('');
 
   const q = query.trim();
@@ -112,6 +112,20 @@ export const AppsGridScreen: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-10">
+        {!q && (
+          <>
+            <div className="text-[11px] font-bold text-white/40 mb-3 tracking-wider px-2">تطبيقات الجهاز</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">
+              <StoreCard
+                icon={<Smartphone className="w-9 h-9" />}
+                name="تطبيقات أندرويد"
+                desc="افتح تطبيقات الجوال المثبّتة"
+                onClick={openAndroidApps}
+                delay={0}
+              />
+            </div>
+          </>
+        )}
         {filteredCore.length > 0 && (
           <>
             <div className="text-[11px] font-bold text-white/40 mb-3 tracking-wider px-2">تطبيقات النظام</div>
