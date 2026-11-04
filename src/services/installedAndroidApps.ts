@@ -1,54 +1,56 @@
-/**
- * جسر JS لإضافة Android أصلية جديدة (InstalledAppsPlugin.java — منفصلة
- * تماماً عن اتصال Miracast) تقرأ قائمة تطبيقات أندرويد المثبتة فعلياً
- * على جوالك (نفس الشيء اللي يطلع بمشغّل التطبيقات العادي: جوجل،
- * كروم، الألعاب...) مع أيقونة كل تطبيق. انظر
- * android-installed-apps-bridge/README.md.
- */
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 export interface InstalledAndroidApp {
   packageName: string;
   name: string;
-  /** data URL (PNG) لأيقونة التطبيق، جاهزة للعرض مباشرة بـ <img>. */
+  /** PNG data URL for the Android app icon. */
   iconDataUrl: string | null;
 }
 
-function getPlugin(): any {
-  if (typeof window === 'undefined') return null;
-  const cap = (window as any).Capacitor;
-  return cap?.Plugins?.InstalledApps ?? null;
+interface InstalledAppsNativePlugin {
+  list(): Promise<{ apps?: Array<{
+    packageName?: string;
+    name?: string;
+    iconDataUrl?: string | null;
+  }> }>;
+  launch(options: { packageName: string }): Promise<void>;
 }
 
+// registerPlugin is required for custom Capacitor plugins. Reading
+// window.Capacitor.Plugins directly does not reliably expose manually
+// registered plugins in Capacitor 6.
+const InstalledApps = registerPlugin<InstalledAppsNativePlugin>('InstalledApps');
+
 export function isInstalledAppsAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
-  const cap = (window as any).Capacitor;
-  return !!(cap?.isNativePlatform?.() && cap?.Plugins?.InstalledApps);
+  return Capacitor.isNativePlatform();
 }
 
 export async function listInstalledAndroidApps(): Promise<InstalledAndroidApp[] | null> {
-  const plugin = getPlugin();
-  if (!plugin) return null;
+  if (!Capacitor.isNativePlatform()) return null;
   try {
-    const res = await plugin.list();
-    const apps = Array.isArray(res?.apps) ? res.apps : [];
-    return apps.map((a: any) => ({
-      packageName: String(a.packageName ?? ''),
-      name: String(a.name ?? a.packageName ?? 'تطبيق'),
-      iconDataUrl: a.iconDataUrl ?? null,
-    }));
-  } catch {
-    return null;
+    const result = await InstalledApps.list();
+    const apps = Array.isArray(result?.apps) ? result.apps : [];
+    return apps
+      .filter((app) => !!app.packageName)
+      .map((app) => ({
+        packageName: String(app.packageName),
+        name: String(app.name ?? app.packageName),
+        iconDataUrl: app.iconDataUrl ?? null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  } catch (error) {
+    console.error('[InstalledApps] Failed to read Android launcher apps:', error);
+    throw error;
   }
 }
 
-/** يفتح تطبيق أندرويد مثبّت فعلياً (نفس أي لانشر) عبر حزمته. */
 export async function launchInstalledAndroidApp(packageName: string): Promise<boolean> {
-  const plugin = getPlugin();
-  if (!plugin) return false;
+  if (!Capacitor.isNativePlatform()) return false;
   try {
-    await plugin.launch({ packageName });
+    await InstalledApps.launch({ packageName });
     return true;
-  } catch {
+  } catch (error) {
+    console.error('[InstalledApps] Failed to launch app:', packageName, error);
     return false;
   }
 }
