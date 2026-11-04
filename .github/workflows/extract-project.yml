@@ -1,0 +1,38 @@
+name: Extract Desktop Project
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "astra-tv-app-7.zip"
+      - ".github/workflows/extract-project.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repository only
+        uses: actions/checkout@v4
+
+      - name: Verify and extract uploaded ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="astra-tv-app-7.zip"
+          test -f "$ZIP" || { echo "::error::Missing $ZIP"; exit 1; }
+          unzip -t "$ZIP"
+          mkdir -p extracted-project
+          unzip -oq "$ZIP" -d extracted-project
+          echo "Extracted project structure:"
+          find extracted-project -maxdepth 4 -type f -print | sort | head -300
+
+      - name: Upload extracted project
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted-desktop-project
+          path: extracted-project/
+          if-no-files-found: error
+          retention-days: 7
