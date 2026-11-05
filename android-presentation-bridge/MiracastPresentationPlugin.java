@@ -181,6 +181,7 @@ public class MiracastPresentationPlugin extends Plugin {
     }
 
     private static String guessMimeType(String path) {
+        if ("api/apps".equals(path)) return "application/json";
         if (path.endsWith(".js") || path.endsWith(".mjs")) return "text/javascript";
         if (path.endsWith(".css")) return "text/css";
         if (path.endsWith(".html")) return "text/html";
@@ -233,6 +234,12 @@ public class MiracastPresentationPlugin extends Plugin {
                     return assetLoader.shouldInterceptRequest(request.getUrl());
                 }
             });
+
+            // Separate Android-app bridge for the TV WebView; does not change Miracast connection handling.
+            webView.addJavascriptInterface(
+                new com.yourapp.TvInstalledAppsBridge(getContext(), getDisplay().getDisplayId()),
+                "AstroAndroidApps"
+            );
 
             setContentView(webView);
             tvWebView = webView;
