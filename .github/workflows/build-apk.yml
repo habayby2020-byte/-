@@ -46,8 +46,24 @@ jobs:
         run: |
           npm install --legacy-peer-deps --no-save @capacitor/cli@6.2.1 @capacitor/core@6.2.1 @capacitor/android@6.2.1 typescript@5.6.3
 
-      - name: Build web application
-        run: npm run build
+      - name: Build web application and package all installed apps
+        run: |
+          set -euo pipefail
+          npm run build
+          test -s dist/index.html
+          test -f dist/api/apps
+          if [ -d apps ]; then
+            while IFS= read -r -d '' file; do
+              rel="${file#apps/}"
+              test -s "dist/apps/$rel"
+            done < <(find apps -type f -print0)
+          fi
+          echo "Built web assets:"
+          du -sh dist
+          echo "Packaged mini-app files:"
+          find dist/apps -type f 2>/dev/null | sort || true
+          echo "App catalogue:"
+          cat dist/api/apps
 
       - name: Generate Android project
         run: npx cap add android
@@ -98,14 +114,30 @@ jobs:
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
-      - name: Build release APK
+      - name: Build installable Android APK
         working-directory: android
-        run: ./gradlew --no-daemon assembleRelease
+        run: ./gradlew --no-daemon clean assembleDebug
 
-      - name: Upload APK artifact
+      - name: Verify APK signature and packaged assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner"
+          "$APKSIGNER" verify --verbose "$APK"
+          unzip -l "$APK" | grep -q 'assets/public/index.html'
+          unzip -l "$APK" | grep -q 'assets/public/api/apps'
+          unzip -l "$APK" | grep -q 'assets/public/apps/rocket-soccer/index.html'
+          echo "APK size:"
+          du -h "$APK"
+          echo "APK SHA-256:"
+          sha256sum "$APK"
+
+      - name: Upload installable APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: ASTRO-Android-APK
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
