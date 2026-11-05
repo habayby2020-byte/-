@@ -3,6 +3,9 @@ name: Build ASTRO Android APK
 # APK builds are paused temporarily. Run manually only when explicitly requested.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - verify/mini-apps-controls-offline
 
 permissions:
   contents: read
