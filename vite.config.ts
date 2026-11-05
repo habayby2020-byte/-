@@ -7,9 +7,9 @@ import { scanApps } from './apps-scanner.mjs';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -18,19 +18,18 @@ const MIME: Record<string, string> = {
 };
 
 /**
- * Makes `npm run dev` understand the apps/ folder the exact same way
- * server.js does in production — so dropping an app folder in shows up
- * immediately in dev too, no rebuild, no restart, no code edit.
+ * Keeps apps/ available in both the dev server and the packaged Android APK.
+ * Capacitor serves only files inside dist, so build-time copying is required.
  */
 function installedAppsPlugin() {
   const appsDir = path.resolve(__dirname, 'apps');
+  const distDir = path.resolve(__dirname, 'dist');
+
   return {
     name: 'installed-apps',
     configureServer(server: any) {
-      // اتصال الجوال بالتلفزيون (Miracast) ما له علاقة بسيرفر التطوير
-      // هذا إطلاقاً — يديره MiracastPresentationPlugin.java داخل الـ APK
-      // مباشرة، فما فيه شيء نعلّقه هنا بعد الآن.
-      server.middlewares.use('/api/apps', (req: any, res: any) => {
+      // Miracast is handled natively by MiracastPresentationPlugin.java.
+      server.middlewares.use('/api/apps', (_req: any, res: any) => {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(scanApps(appsDir)));
       });
@@ -44,6 +43,22 @@ function installedAppsPlugin() {
         res.setHeader('Content-Type', MIME[path.extname(filePath)] || 'application/octet-stream');
         fs.createReadStream(filePath).pipe(res);
       });
+    },
+    closeBundle() {
+      // Include every installed mini-app in the web bundle copied into the APK.
+      if (fs.existsSync(appsDir)) {
+        fs.cpSync(appsDir, path.join(distDir, 'apps'), { recursive: true });
+      }
+
+      // Android's WebView has no Node/Express server. Serve the app catalogue
+      // as a static endpoint at the same URL the React app already requests.
+      const apiDir = path.join(distDir, 'api');
+      fs.mkdirSync(apiDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(apiDir, 'apps'),
+        JSON.stringify(scanApps(appsDir)),
+        'utf8'
+      );
     },
   };
 }
