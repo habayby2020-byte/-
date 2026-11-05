@@ -44,7 +44,7 @@ jobs:
 
       - name: Install project and Capacitor Android tooling
         run: |
-          npm install --no-save @capacitor/cli@6.2.1 @capacitor/core@6.2.1 @capacitor/android@6.2.1
+          npm install --legacy-peer-deps --no-save @capacitor/cli@6.2.1 @capacitor/core@6.2.1 @capacitor/android@6.2.1
 
       - name: Build web application
         run: npm run build
