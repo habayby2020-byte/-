@@ -1,0 +1,71 @@
+name: Extract project archive permanently
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extract-project-archive
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    if: "!contains(github.event.head_commit.message, '[archive-extractor]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Extract archive into repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="astro-tv-app.zip"
+          MARKER=".archive-extracted"
+
+          if [[ ! -f "$ARCHIVE" ]]; then
+            echo "::error::Missing $ARCHIVE in repository root."
+            exit 1
+          fi
+
+          if [[ -f "$MARKER" ]]; then
+            echo "Archive was already extracted permanently; nothing to do."
+            exit 0
+          fi
+
+          unzip -t "$ARCHIVE"
+          mkdir -p /tmp/astro-archive
+          unzip -q "$ARCHIVE" -d /tmp/astro-archive
+
+          # Remove a single common wrapper directory when the ZIP has one.
+          mapfile -t top_entries < <(find /tmp/astro-archive -mindepth 1 -maxdepth 1 -printf '%f\n')
+          SOURCE="/tmp/astro-archive"
+          if [[ "${#top_entries[@]}" -eq 1 && -d "/tmp/astro-archive/${top_entries[0]}" ]]; then
+            SOURCE="/tmp/astro-archive/${top_entries[0]}"
+          fi
+
+          # Copy the project files permanently into the repository.
+          # Keep this extraction workflow and do not import an APK build workflow from the archive.
+          rsync -a --exclude='.git' \
+            --exclude='.github/workflows/extract-archive.yml' \
+            --exclude='.github/workflows/*build*.yml' \
+            "$SOURCE/" ./
+
+          printf 'Extracted astro-tv-app.zip into the repository on %s\n' "$(date -u +%FT%TZ)" > "$MARKER"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No extracted files to commit."
+          else
+            git commit -m "[archive-extractor] Extract project archive permanently"
+            git push
+          fi
