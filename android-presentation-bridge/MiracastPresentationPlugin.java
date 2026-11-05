@@ -237,7 +237,7 @@ public class MiracastPresentationPlugin extends Plugin {
 
             // Separate Android-app bridge for the TV WebView; does not change Miracast connection handling.
             webView.addJavascriptInterface(
-                new com.yourapp.TvInstalledAppsBridge(getContext(), getDisplay().getDisplayId()),
+                new TvInstalledAppsBridge(getContext(), getDisplay().getDisplayId()),
                 "AstroAndroidApps"
             );
 
