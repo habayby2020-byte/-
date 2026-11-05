@@ -188,48 +188,51 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
   useEffect(() => {
     let cancelled = false;
 
+    const requiredMiniAppIds = ['quick-note', 'rocket-soccer', 'spider-city'];
+    const validateCatalogue = (list: InstalledApp[], source: string): InstalledApp[] => {
+      const ids = new Set(list.map(app => app.id));
+      const missing = requiredMiniAppIds.filter(id => !ids.has(id));
+      if (missing.length) {
+        throw new Error(`${source}: missing bundled mini-apps: ${missing.join(', ')}`);
+      }
+      return list;
+    };
+
     const readCatalogue = async (url: string): Promise<InstalledApp[]> => {
       const response = await fetch(url, { cache: 'no-store' });
       if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
       const value = await response.json();
       if (!Array.isArray(value)) throw new Error(`${url}: catalogue is not an array`);
-      return value.filter((app: any) =>
+      const list = value.filter((app: any) =>
         app && typeof app.id === 'string' &&
         typeof app.name === 'string' &&
         typeof app.entry === 'string' &&
         app.entry.startsWith('/apps/')
       );
+      return validateCatalogue(list, url);
     };
 
     const fetchApps = async () => {
       try {
-        // Normal path: dynamic Vite/Express endpoint.
         let list: InstalledApp[];
         try {
           list = await readCatalogue('/api/apps');
-        } catch {
-          // Android Presentation WebView can occasionally fail the extensionless
-          // asset URL. The exact same build-time catalogue is also packaged as JSON.
+        } catch (primaryError) {
+          // The TV Presentation can fail the extensionless endpoint. Try the
+          // packaged JSON catalogue, but never silently accept an empty result.
+          console.warn('[ASTRO] Dynamic app catalogue failed; trying packaged fallback:', primaryError);
           list = await readCatalogue('/apps-catalogue.json');
-        }
-
-        // An empty API response is suspicious when mini-apps are bundled; retry
-        // the packaged catalogue before declaring the store empty.
-        if (list.length === 0) {
-          try {
-            const packaged = await readCatalogue('/apps-catalogue.json');
-            if (packaged.length > 0) list = packaged;
-          } catch {
-            // Keep the valid empty API response; the UI will show an empty state.
-          }
         }
 
         if (cancelled) return;
         setInstalledApps(list);
         setAppsApiStatus('ok');
       } catch (error) {
-        console.error('[ASTRO] App catalogue unavailable:', error);
-        if (!cancelled) setAppsApiStatus('error');
+        console.error('[ASTRO] App catalogue unavailable or incomplete:', error);
+        if (!cancelled) {
+          setInstalledApps([]);
+          setAppsApiStatus('error');
+        }
       }
     };
 
