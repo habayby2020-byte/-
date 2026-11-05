@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.net.Uri;
 import android.view.Display;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -173,11 +174,28 @@ public class MiracastPresentationPlugin extends Plugin {
     private WebResourceResponse servePublicAsset(String path) {
         String target = (path == null || path.isEmpty()) ? "index.html" : path;
         try {
+            // Normalize encoded/leading-slash paths before opening APK assets.
+            target = Uri.decode(target);
+            while (target.startsWith("/")) target = target.substring(1);
+            if (target.isEmpty()) target = "index.html";
+            if (target.contains("../") || target.equals("..") || target.startsWith("../")) {
+                return assetError(403, "Forbidden");
+            }
             InputStream stream = getContext().getAssets().open("public/" + target);
             return new WebResourceResponse(guessMimeType(target), "UTF-8", stream);
         } catch (IOException e) {
-            return null;
+            Log.w(TAG, "TV asset not found: " + path, e);
+            return assetError(404, "Asset not found: " + path);
         }
+    }
+
+    private static WebResourceResponse assetError(int status, String reason) {
+        byte[] body = reason.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return new WebResourceResponse(
+            "text/plain", "UTF-8", status, reason,
+            java.util.Collections.singletonMap("Cache-Control", "no-store"),
+            new java.io.ByteArrayInputStream(body)
+        );
     }
 
     private static String guessMimeType(String path) {
@@ -191,6 +209,12 @@ public class MiracastPresentationPlugin extends Plugin {
         if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
         if (path.endsWith(".woff2")) return "font/woff2";
         if (path.endsWith(".woff")) return "font/woff";
+        if (path.endsWith(".wasm")) return "application/wasm";
+        if (path.endsWith(".glb")) return "model/gltf-binary";
+        if (path.endsWith(".gltf")) return "model/gltf+json";
+        if (path.endsWith(".mp3")) return "audio/mpeg";
+        if (path.endsWith(".ogg")) return "audio/ogg";
+        if (path.endsWith(".mp4")) return "video/mp4";
         String guess = URLConnection.guessContentTypeFromName(path);
         return guess != null ? guess : "application/octet-stream";
     }
@@ -237,7 +261,10 @@ public class MiracastPresentationPlugin extends Plugin {
 
             // Separate Android-app bridge for the TV WebView; does not change Miracast connection handling.
             webView.addJavascriptInterface(
-                new TvInstalledAppsBridge(getContext(), getDisplay().getDisplayId()),
+                new TvInstalledAppsBridge(
+                    MiracastPresentationPlugin.this.getActivity(),
+                    getDisplay().getDisplayId()
+                ),
                 "AstroAndroidApps"
             );
 

@@ -1,20 +1,26 @@
 /**
- * Android app access for both WebViews:
- * - Phone Capacitor WebView: Capacitor.Plugins.InstalledApps
- * - TV Presentation WebView: window.AstroAndroidApps (JavascriptInterface)
- * The TV bridge launches apps on the secondary display when Android permits it.
+ * Android app access in the TV Presentation WebView.
+ * The TV WebView is separate from Capacitor's phone WebView, so it must use
+ * the native JavascriptInterface bridge registered on the Presentation.
  */
 export interface InstalledAndroidApp {
   packageName: string;
+  activityName: string;
   name: string;
   iconDataUrl: string | null;
+}
+
+export interface AndroidLaunchResult {
+  ok: boolean;
+  message: string;
+  target: 'tv' | 'phone' | 'none' | 'timeout';
 }
 
 declare global {
   interface Window {
     AstroAndroidApps?: {
       list: () => string;
-      launch: (packageName: string) => boolean;
+      launch: (packageName: string, activityName: string) => string;
     };
   }
 }
@@ -39,6 +45,7 @@ function normalizeApps(raw: any): InstalledAndroidApp[] {
     if (!packageName || unique.has(packageName)) continue;
     unique.set(packageName, {
       packageName,
+      activityName: String(app?.activityName ?? ''),
       name: String(app?.name ?? packageName),
       iconDataUrl: typeof app?.iconDataUrl === 'string' ? app.iconDataUrl : null,
     });
@@ -63,19 +70,33 @@ export async function listInstalledAndroidApps(): Promise<InstalledAndroidApp[] 
   }
 }
 
-/** Launch on the TV's secondary display when called from the Presentation WebView. */
-export async function launchInstalledAndroidApp(packageName: string): Promise<boolean> {
+function normalizeLaunchResult(raw: any): AndroidLaunchResult {
+  const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  return {
+    ok: value?.ok === true,
+    message: String(value?.message ?? (value?.ok ? 'تم إرسال طلب التشغيل.' : 'تعذّر تشغيل التطبيق.')),
+    target: ['tv', 'phone', 'timeout'].includes(value?.target) ? value.target : 'none',
+  };
+}
+
+export async function launchInstalledAndroidApp(app: InstalledAndroidApp): Promise<AndroidLaunchResult> {
   const tvBridge = getTvBridge();
   const plugin = getCapacitorPlugin();
   try {
-    if (tvBridge?.launch) return tvBridge.launch(packageName) === true;
-    if (plugin?.launch) {
-      await plugin.launch({ packageName });
-      return true;
+    if (tvBridge?.launch) {
+      return normalizeLaunchResult(tvBridge.launch(app.packageName, app.activityName));
     }
-    return false;
+    if (plugin?.launch) {
+      await plugin.launch({ packageName: app.packageName });
+      return { ok: true, message: 'تم إرسال طلب فتح التطبيق على الجوال.', target: 'phone' };
+    }
+    return { ok: false, message: 'جسر تشغيل تطبيقات أندرويد غير متصل.', target: 'none' };
   } catch (error) {
     console.error('[ASTRO] Failed to launch Android app:', error);
-    return false;
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'تعذّر تشغيل التطبيق.',
+      target: 'none',
+    };
   }
 }
