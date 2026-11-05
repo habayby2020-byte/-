@@ -21,7 +21,8 @@
 <div id="three-root"></div>
 <div class="hud" id="hud">الاتصال جاهز — بانتظار ربط الأزرار من كودك<span class="pulse"></span></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/apps/_shared/vendor/three.js"></script>
+<script src="/apps/_shared/astro-control-client.js"></script>
 <script>
 /* =====================================================================
    الدوال الجاهزة للعبة — نادِها من داخل KEY_ACTIONS / KEY_RELEASE تبعك
@@ -39,25 +40,45 @@
 // يفعّل استقبال كل الأزرار تلقائيًا. حطه أول شي بكودك.
 // ========================================================
 
+// ربط يد ASTRO مباشرة بحركة اللاعب وأفعاله.
+const moveBinding = (direction) => ({
+  down: () => window.PlayerMove?.start(direction),
+  up: () => window.PlayerMove?.stop(direction),
+});
+AstroControl.on('gamepad.dpad.up', moveBinding('forward'));
+AstroControl.on('gamepad.dpad.down', moveBinding('back'));
+AstroControl.on('gamepad.dpad.left', moveBinding('left'));
+AstroControl.on('gamepad.dpad.right', moveBinding('right'));
+AstroControl.on('gamepad.action.bottom', { down: () => window.PlayerMove?.jump() });
+AstroControl.on('gamepad.action.right', {
+  down: () => window.PlayerMove?.sprintOn(),
+  up: () => window.PlayerMove?.sprintOff(),
+});
+AstroControl.on('gamepad.action.left', { down: () => window.PlayerMove?.swingToggle() });
+
+// ولو وصلت أوامر كيبورد عادية، تدعم نفس الحركة.
+const KEY_ACTIONS = {
+  ArrowUp: () => window.PlayerMove?.start('forward'),
+  ArrowDown: () => window.PlayerMove?.start('back'),
+  ArrowLeft: () => window.PlayerMove?.start('left'),
+  ArrowRight: () => window.PlayerMove?.start('right'),
+  Space: () => window.PlayerMove?.jump(),
+  ShiftLeft: () => window.PlayerMove?.sprintOn(),
+  KeyE: () => window.PlayerMove?.swingToggle(),
+};
+const KEY_RELEASE = {
+  ArrowUp: () => window.PlayerMove?.stop('forward'),
+  ArrowDown: () => window.PlayerMove?.stop('back'),
+  ArrowLeft: () => window.PlayerMove?.stop('left'),
+  ArrowRight: () => window.PlayerMove?.stop('right'),
+  ShiftLeft: () => window.PlayerMove?.sprintOff(),
+};
+
 window.addEventListener('keydown', e => {
-  if (e.repeat) return; // يمنع التكرار التلقائي لو ضل الزر مثبّت
+  if (e.repeat) return;
   KEY_ACTIONS[e.code]?.();
 });
-
-window.addEventListener('keyup', e => {
-  KEY_RELEASE[e.code]?.();
-});
-
-// ---- من هنا وطالع: أزرارك إنت، كل سطر = زر ----
-const KEY_ACTIONS = {
-  // 'KeyR':     () => startEngine(),
-  // 'ArrowUp':  () => startMoving(),
-  // 'Space':    () => jump(),
-};
-
-const KEY_RELEASE = {
-  // 'ArrowUp':  () => stopMoving(),
-};
+window.addEventListener('keyup', e => KEY_RELEASE[e.code]?.());
 
 (function(){
 "use strict";
