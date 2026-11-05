@@ -50,6 +50,29 @@ function installedAppsPlugin() {
         fs.cpSync(appsDir, path.join(distDir, 'apps'), { recursive: true });
       }
 
+      // Vendor Three.js r128 and its legacy post-processing scripts into the APK.
+      // The mini-games must not depend on a live CDN connection at runtime.
+      const threeDir = path.resolve(__dirname, 'node_modules/three');
+      const vendorDir = path.join(distDir, 'apps', '_shared', 'vendor');
+      const vendorFiles: [string, string][] = [
+        ['build/three.js', 'three.js'],
+        ['examples/js/shaders/CopyShader.js', 'CopyShader.js'],
+        ['examples/js/shaders/LuminosityHighPassShader.js', 'LuminosityHighPassShader.js'],
+        ['examples/js/postprocessing/ShaderPass.js', 'ShaderPass.js'],
+        ['examples/js/postprocessing/MaskPass.js', 'MaskPass.js'],
+        ['examples/js/postprocessing/RenderPass.js', 'RenderPass.js'],
+        ['examples/js/postprocessing/EffectComposer.js', 'EffectComposer.js'],
+        ['examples/js/postprocessing/UnrealBloomPass.js', 'UnrealBloomPass.js'],
+      ];
+      fs.mkdirSync(vendorDir, { recursive: true });
+      for (const [source, target] of vendorFiles) {
+        const sourcePath = path.join(threeDir, source);
+        if (!fs.existsSync(sourcePath)) {
+          throw new Error(`Missing Three.js runtime file: ${sourcePath}`);
+        }
+        fs.copyFileSync(sourcePath, path.join(vendorDir, target));
+      }
+
       // Android's WebView has no Node/Express server. Serve the app catalogue
       // as a static endpoint at the same URL the React app already requests.
       const apiDir = path.join(distDir, 'api');
