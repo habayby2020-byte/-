@@ -41,17 +41,38 @@ jobs:
           set -euo pipefail
           npm run build
           test -s dist/index.html
-          test -f dist/api/apps
-          if [ -d apps ]; then
-            while IFS= read -r -d '' file; do
-              rel="${file#apps/}"
-              test -s "dist/apps/$rel"
-            done < <(find apps -type f -print0)
+          test -s dist/api/apps
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const apps = JSON.parse(fs.readFileSync('dist/api/apps', 'utf8'));
+          for (const id of ['rocket-soccer', 'spider-city']) {
+            const app = apps.find(item => item.id === id);
+            if (!app) throw new Error('App missing from catalogue: ' + id);
+            if (!fs.existsSync('dist' + app.entry)) throw new Error('App entry missing from dist: ' + app.entry);
+            if (app.icon && !fs.existsSync('dist' + app.icon)) throw new Error('App icon missing from dist: ' + app.icon);
+          }
+          for (const file of [
+            'dist/apps/_shared/astro-control-client.js',
+            'dist/apps/_shared/vendor/three.js',
+            'dist/apps/_shared/vendor/CopyShader.js',
+            'dist/apps/_shared/vendor/LuminosityHighPassShader.js',
+            'dist/apps/_shared/vendor/ShaderPass.js',
+            'dist/apps/_shared/vendor/MaskPass.js',
+            'dist/apps/_shared/vendor/RenderPass.js',
+            'dist/apps/_shared/vendor/EffectComposer.js',
+            'dist/apps/_shared/vendor/UnrealBloomPass.js',
+            'dist/apps/rocket-soccer/index.html',
+            'dist/apps/spider-city/index.html'
+          ]) if (!fs.existsSync(file) || fs.statSync(file).size === 0) throw new Error('Required mini-app asset missing: ' + file);
+          NODE
+          if grep -R -nE 'https?://(cdnjs.cloudflare.com|cdn.jsdelivr.net)/.*three' apps; then
+            echo "Mini-games still depend on an external Three.js CDN." >&2
+            exit 1
           fi
           echo "Built web assets:"
           du -sh dist
           echo "Packaged mini-app files:"
-          find dist/apps -type f 2>/dev/null | sort || true
+          find dist/apps -type f | sort
           echo "App catalogue:"
           cat dist/api/apps
 
@@ -119,6 +140,9 @@ jobs:
           unzip -l "$APK" | grep -q 'assets/public/index.html'
           unzip -l "$APK" | grep -q 'assets/public/api/apps'
           unzip -l "$APK" | grep -q 'assets/public/apps/rocket-soccer/index.html'
+          unzip -l "$APK" | grep -q 'assets/public/apps/spider-city/index.html'
+          unzip -l "$APK" | grep -q 'assets/public/apps/_shared/astro-control-client.js'
+          unzip -l "$APK" | grep -q 'assets/public/apps/_shared/vendor/three.js'
           echo "APK size:"
           du -h "$APK"
           echo "APK SHA-256:"
