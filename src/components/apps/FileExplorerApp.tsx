@@ -29,6 +29,7 @@ interface FileExplorerAppProps {
 export const FileExplorerApp: React.FC<FileExplorerAppProps> = ({ initialData }) => {
   const {
     files,
+    installedApps,
     createFile,
     createFolder,
     deleteFile,
@@ -99,31 +100,69 @@ export const FileExplorerApp: React.FC<FileExplorerAppProps> = ({ initialData })
     }
   };
 
+  const GAMES_FOLDER_ID = 'folder-installed-games';
+  const APPS_FOLDER_ID = 'folder-installed-apps';
+  const isVirtualFolder = currentFolderId === GAMES_FOLDER_ID || currentFolderId === APPS_FOLDER_ID;
+  const isGameApp = (app: typeof installedApps[number]) => {
+    const key = app.id.toLowerCase();
+    return key.includes('rocket') || key.includes('soccer') || key.includes('spider') || key.includes('game');
+  };
+
+  const virtualFolders: FileItem[] = [
+    { id: GAMES_FOLDER_ID, name: 'الألعاب', type: 'folder', parentId: null, location: 'this-pc', updatedAt: '2026/11/05' },
+    { id: APPS_FOLDER_ID, name: 'التطبيقات المضافة', type: 'folder', parentId: null, location: 'this-pc', updatedAt: '2026/11/05' },
+  ];
+
   const handleUp = () => {
     if (currentFolderId) {
+      if (isVirtualFolder) {
+        navigateTo(currentLocation, null);
+        return;
+      }
       const currentFolder = files.find(f => f.id === currentFolderId);
       navigateTo(currentLocation, currentFolder ? currentFolder.parentId : null);
     }
   };
 
-  // Filter items in current view
-  const currentItems = files.filter(f => {
-    // Location filter
-    if (currentLocation === 'recycle') {
-      if (f.location !== 'recycle') return false;
-    } else if (currentLocation === 'network') {
-      if (f.location !== 'network') return false;
-    } else {
-      if (f.location === 'recycle' || f.location === 'network') return false;
-    }
+  // التطبيقات المكتشفة من apps/ تظهر كمجلدات افتراضية للقراءة والتشغيل،
+  // بدون نسخ ملفات الألعاب إلى localStorage أو تغيير ملفات الاتصال.
+  const visibleInstalledApps = currentFolderId === GAMES_FOLDER_ID
+    ? installedApps.filter(isGameApp)
+    : currentFolderId === APPS_FOLDER_ID
+    ? installedApps.filter(app => !isGameApp(app))
+    : [];
 
-    if (searchQuery.trim()) {
-      return f.name.toLowerCase().includes(searchQuery.toLowerCase());
-    }
-    return f.parentId === currentFolderId;
-  });
+  const virtualAppItems: FileItem[] = visibleInstalledApps.map(app => ({
+    id: `installed-app:${app.id}`,
+    name: app.name,
+    type: 'file',
+    parentId: currentFolderId,
+    location: 'this-pc',
+    content: app.entry,
+    updatedAt: '2026/11/05',
+  }));
 
-  const currentFolder = files.find(f => f.id === currentFolderId);
+  // Filter real files plus the discovered-app folders/items in This PC.
+  const currentItems: FileItem[] = currentLocation === 'this-pc'
+    ? currentFolderId === null
+      ? [
+          ...files.filter(f => f.location !== 'recycle' && f.location !== 'network' && f.parentId === null),
+          ...virtualFolders,
+        ].filter(f => !searchQuery.trim() || f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      : isVirtualFolder
+      ? virtualAppItems.filter(f => !searchQuery.trim() || f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      : files.filter(f => f.location !== 'recycle' && f.location !== 'network' && f.parentId === currentFolderId)
+          .filter(f => !searchQuery.trim() || f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : files.filter(f => {
+        if (currentLocation === 'recycle') return f.location === 'recycle';
+        return f.location === 'network';
+      }).filter(f => searchQuery.trim()
+        ? f.name.toLowerCase().includes(searchQuery.toLowerCase())
+        : f.parentId === currentFolderId);
+
+  const currentFolder = isVirtualFolder
+    ? virtualFolders.find(f => f.id === currentFolderId)
+    : files.find(f => f.id === currentFolderId);
   const locationTitles = {
     'this-pc': 'هذا الكمبيوتر الشخصي',
     'network': 'الشبكة المحلية',
@@ -132,6 +171,12 @@ export const FileExplorerApp: React.FC<FileExplorerAppProps> = ({ initialData })
   const folderTitle = currentFolder ? currentFolder.name : locationTitles[currentLocation];
 
   const handleItemDoubleClick = (item: FileItem) => {
+    if (item.id.startsWith('installed-app:')) {
+      const appId = item.id.slice('installed-app:'.length);
+      const app = installedApps.find(candidate => candidate.id === appId);
+      if (app) openApp('installed', { title: app.name, icon: app.icon, entry: app.entry });
+      return;
+    }
     if (item.type === 'folder') {
       navigateTo(currentLocation, item.id);
     } else {
