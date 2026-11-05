@@ -80,49 +80,16 @@
   <div id="resultScore" style="font-size:30px;margin-top:10px"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="/apps/_shared/vendor/three.js"></script>
+<script src="/apps/_shared/vendor/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="/apps/_shared/vendor/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="/apps/_shared/astro-control-client.js"></script>
 <script>
-/* ============================================================
-   REAL CONTROL CHANNEL — Astro TV protocol, official reference
-   client (embedded verbatim). No on-screen buttons, no pairing UI.
-   ============================================================ */
-(function () {
-  const listeners = {}, combos = [], heldButtons = new Set();
-  function emit(id, phase) {
-    (listeners[id] || []).forEach(l => {
-      if (phase === 'down' && l.down) l.down();
-      if (phase === 'up' && l.up) l.up();
-    });
-  }
-  function checkCombos() {
-    combos.forEach(c => {
-      const all = [...c.ids].every(id => heldButtons.has(id));
-      if (all && !c.fired) { c.fired = true; c.cb(); }
-      else if (!all) { c.fired = false; }
-    });
-  }
-  document.addEventListener('astro:control', (e) => {
-    const { phase, buttonId } = e.detail || {};
-    if (!buttonId) return;
-    if (phase === 'down') heldButtons.add(buttonId);
-    if (phase === 'up') heldButtons.delete(buttonId);
-    emit(buttonId, phase);
-    checkCombos();
-  });
-  window.AstroControl = {
-    on(id, h) { (listeners[id] = listeners[id] || []).push(h); },
-    onCombo(ids, cb) { combos.push({ ids: new Set(ids), fired: false, cb }); },
-    isDown(id) { return heldButtons.has(id); },
-  };
-})();
-
 const Input = {steer:0,throttle:0,jump:false,boost:false,drift:false,pitch:0,yaw:0,roll:0,cameraToggle:false,pause:false};
 const MenuEdge = {up:false,down:false,left:false,right:false,select:false,back:false};
 const DIRS = ['up','down','left','right','up-right','up-left','down-right','down-left'];
