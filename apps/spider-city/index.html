@@ -49,6 +49,22 @@ AstroControl.on('gamepad.dpad.up', moveBinding('forward'));
 AstroControl.on('gamepad.dpad.down', moveBinding('back'));
 AstroControl.on('gamepad.dpad.left', moveBinding('left'));
 AstroControl.on('gamepad.dpad.right', moveBinding('right'));
+AstroControl.on('gamepad.dpad.up-right', {
+  down: () => { window.PlayerMove?.start('forward'); window.PlayerMove?.start('right'); },
+  up: () => { window.PlayerMove?.stop('forward'); window.PlayerMove?.stop('right'); },
+});
+AstroControl.on('gamepad.dpad.up-left', {
+  down: () => { window.PlayerMove?.start('forward'); window.PlayerMove?.start('left'); },
+  up: () => { window.PlayerMove?.stop('forward'); window.PlayerMove?.stop('left'); },
+});
+AstroControl.on('gamepad.dpad.down-right', {
+  down: () => { window.PlayerMove?.start('back'); window.PlayerMove?.start('right'); },
+  up: () => { window.PlayerMove?.stop('back'); window.PlayerMove?.stop('right'); },
+});
+AstroControl.on('gamepad.dpad.down-left', {
+  down: () => { window.PlayerMove?.start('back'); window.PlayerMove?.start('left'); },
+  up: () => { window.PlayerMove?.stop('back'); window.PlayerMove?.stop('left'); },
+});
 AstroControl.on('gamepad.action.bottom', { down: () => window.PlayerMove?.jump() });
 AstroControl.on('gamepad.action.right', {
   down: () => window.PlayerMove?.sprintOn(),
