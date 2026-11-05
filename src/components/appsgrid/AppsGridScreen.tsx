@@ -94,7 +94,7 @@ export const AppsGridScreen: React.FC = () => {
       {appsApiStatus === 'error' && (
         <div className="mx-6 mb-3 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-[11px] flex items-center gap-2 astra-fade-up">
           <WifiOff className="w-4 h-4 shrink-0" />
-          <span>تعذّر الاتصال بسيرفر اكتشاف التطبيقات — شغّل <code dir="ltr">npm run dev</code> (أو <code dir="ltr">npm start</code>) من جذر المشروع عشان تطبيقاتك المضافة تطلع هنا.</span>
+          <span>تعذّر تحميل فهرس التطبيقات من ملفات التطبيق. أعد فتح المتجر؛ وإذا استمرت المشكلة فهناك خلل في حزمة التطبيقات المضمّنة.</span>
         </div>
       )}
 

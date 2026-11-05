@@ -13,18 +13,29 @@ export const AndroidAppsScreen: React.FC = () => {
   const [apps, setApps] = useState<InstalledAndroidApp[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const available = isInstalledAppsAvailable();
 
-  const load = () => {
+  const load = async () => {
+    setLoadError(null);
     if (!available) {
+      setApps(null);
       setLoading(false);
+      setLoadError('جسر تطبيقات أندرويد غير متصل بهذه الشاشة.');
       return;
     }
     setLoading(true);
-    listInstalledAndroidApps().then(list => {
-      setApps(list);
+    try {
+      const list = await listInstalledAndroidApps();
+      if (list === null) {
+        setApps([]);
+        setLoadError('تعذّر قراءة التطبيقات من أندرويد. أعد فتح الشاشة أو تحقق من صلاحيات/تضمين الإضافة.');
+      } else {
+        setApps(list);
+      }
+    } finally {
       setLoading(false);
-    });
+    }
   };
 
   useEffect(() => {
@@ -95,11 +106,18 @@ export const AndroidAppsScreen: React.FC = () => {
           <div className="text-center text-white/40 text-xs mt-10">جار التحميل...</div>
         )}
 
-        {available && !loading && apps && apps.length === 0 && (
+        {loadError && !loading && (
+          <div className="astra-glass rounded-2xl p-5 text-center max-w-md mx-auto mt-8 space-y-3">
+            <p className="text-xs text-amber-200 leading-relaxed">{loadError}</p>
+            <button onClick={load} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-semibold">إعادة المحاولة</button>
+          </div>
+        )}
+
+        {available && !loading && !loadError && apps && apps.length === 0 && (
           <div className="text-center text-white/40 text-xs mt-10">ما لقينا أي تطبيقات.</div>
         )}
 
-        {available && !loading && filteredApps && filteredApps.length > 0 && (
+        {available && !loading && !loadError && filteredApps && filteredApps.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
             {filteredApps.map((app, i) => (
               <button
@@ -137,7 +155,7 @@ export const AndroidAppsScreen: React.FC = () => {
           </div>
         )}
 
-        {available && !loading && q && filteredApps && filteredApps.length === 0 && (
+        {available && !loading && !loadError && q && filteredApps && filteredApps.length === 0 && (
           <div className="text-center text-white/30 text-sm mt-16">ما فيه نتائج لـ "{q}"</div>
         )}
       </div>

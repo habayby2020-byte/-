@@ -1,54 +1,81 @@
 /**
- * جسر JS لإضافة Android أصلية جديدة (InstalledAppsPlugin.java — منفصلة
- * تماماً عن اتصال Miracast) تقرأ قائمة تطبيقات أندرويد المثبتة فعلياً
- * على جوالك (نفس الشيء اللي يطلع بمشغّل التطبيقات العادي: جوجل،
- * كروم، الألعاب...) مع أيقونة كل تطبيق. انظر
- * android-installed-apps-bridge/README.md.
+ * Android app access for both WebViews:
+ * - Phone Capacitor WebView: Capacitor.Plugins.InstalledApps
+ * - TV Presentation WebView: window.AstroAndroidApps (JavascriptInterface)
+ * The TV bridge launches apps on the secondary display when Android permits it.
  */
-
 export interface InstalledAndroidApp {
   packageName: string;
   name: string;
-  /** data URL (PNG) لأيقونة التطبيق، جاهزة للعرض مباشرة بـ <img>. */
   iconDataUrl: string | null;
 }
 
-function getPlugin(): any {
+declare global {
+  interface Window {
+    AstroAndroidApps?: {
+      list: () => string;
+      launch: (packageName: string) => boolean;
+    };
+  }
+}
+
+function getCapacitorPlugin(): any {
   if (typeof window === 'undefined') return null;
-  const cap = (window as any).Capacitor;
-  return cap?.Plugins?.InstalledApps ?? null;
+  return (window as any).Capacitor?.Plugins?.InstalledApps ?? null;
+}
+
+function getTvBridge() {
+  if (typeof window === 'undefined') return null;
+  return window.AstroAndroidApps ?? null;
+}
+
+function normalizeApps(raw: any): InstalledAndroidApp[] {
+  const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (payload?.error) throw new Error(String(payload.error));
+  const apps = Array.isArray(payload?.apps) ? payload.apps : [];
+  const unique = new Map<string, InstalledAndroidApp>();
+  for (const app of apps) {
+    const packageName = String(app?.packageName ?? '').trim();
+    if (!packageName || unique.has(packageName)) continue;
+    unique.set(packageName, {
+      packageName,
+      name: String(app?.name ?? packageName),
+      iconDataUrl: typeof app?.iconDataUrl === 'string' ? app.iconDataUrl : null,
+    });
+  }
+  return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function isInstalledAppsAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
-  const cap = (window as any).Capacitor;
-  return !!(cap?.isNativePlatform?.() && cap?.Plugins?.InstalledApps);
+  return !!(getTvBridge() || getCapacitorPlugin());
 }
 
 export async function listInstalledAndroidApps(): Promise<InstalledAndroidApp[] | null> {
-  const plugin = getPlugin();
-  if (!plugin) return null;
+  const tvBridge = getTvBridge();
+  const plugin = getCapacitorPlugin();
   try {
-    const res = await plugin.list();
-    const apps = Array.isArray(res?.apps) ? res.apps : [];
-    return apps.map((a: any) => ({
-      packageName: String(a.packageName ?? ''),
-      name: String(a.name ?? a.packageName ?? 'تطبيق'),
-      iconDataUrl: a.iconDataUrl ?? null,
-    }));
-  } catch {
+    if (tvBridge?.list) return normalizeApps(tvBridge.list());
+    if (plugin?.list) return normalizeApps(await plugin.list());
+    return null;
+  } catch (error) {
+    console.error('[ASTRO] Failed to list Android apps:', error);
     return null;
   }
 }
 
-/** يفتح تطبيق أندرويد مثبّت فعلياً (نفس أي لانشر) عبر حزمته. */
+/** Launch on the TV's secondary display when called from the Presentation WebView. */
 export async function launchInstalledAndroidApp(packageName: string): Promise<boolean> {
-  const plugin = getPlugin();
-  if (!plugin) return false;
+  const tvBridge = getTvBridge();
+  const plugin = getCapacitorPlugin();
   try {
-    await plugin.launch({ packageName });
-    return true;
-  } catch {
+    if (tvBridge?.launch) return tvBridge.launch(packageName) === true;
+    if (plugin?.launch) {
+      await plugin.launch({ packageName });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('[ASTRO] Failed to launch Android app:', error);
     return false;
   }
 }

@@ -187,20 +187,54 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
   // app folder in makes it show up on its own — no rebuild, no code edit.
   useEffect(() => {
     let cancelled = false;
-    const fetchApps = () => {
-      fetch('/api/apps')
-        .then(res => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-        .then((list: InstalledApp[]) => {
-          if (cancelled) return;
-          setInstalledApps(Array.isArray(list) ? list : []);
-          setAppsApiStatus('ok');
-        })
-        .catch(() => {
-          if (!cancelled) setAppsApiStatus('error');
-        });
+
+    const readCatalogue = async (url: string): Promise<InstalledApp[]> => {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+      const value = await response.json();
+      if (!Array.isArray(value)) throw new Error(`${url}: catalogue is not an array`);
+      return value.filter((app: any) =>
+        app && typeof app.id === 'string' &&
+        typeof app.name === 'string' &&
+        typeof app.entry === 'string' &&
+        app.entry.startsWith('/apps/')
+      );
     };
-    fetchApps();
-    const interval = setInterval(fetchApps, 4000);
+
+    const fetchApps = async () => {
+      try {
+        // Normal path: dynamic Vite/Express endpoint.
+        let list: InstalledApp[];
+        try {
+          list = await readCatalogue('/api/apps');
+        } catch {
+          // Android Presentation WebView can occasionally fail the extensionless
+          // asset URL. The exact same build-time catalogue is also packaged as JSON.
+          list = await readCatalogue('/apps-catalogue.json');
+        }
+
+        // An empty API response is suspicious when mini-apps are bundled; retry
+        // the packaged catalogue before declaring the store empty.
+        if (list.length === 0) {
+          try {
+            const packaged = await readCatalogue('/apps-catalogue.json');
+            if (packaged.length > 0) list = packaged;
+          } catch {
+            // Keep the valid empty API response; the UI will show an empty state.
+          }
+        }
+
+        if (cancelled) return;
+        setInstalledApps(list);
+        setAppsApiStatus('ok');
+      } catch (error) {
+        console.error('[ASTRO] App catalogue unavailable:', error);
+        if (!cancelled) setAppsApiStatus('error');
+      }
+    };
+
+    void fetchApps();
+    const interval = setInterval(() => { void fetchApps(); }, 10000);
     return () => {
       cancelled = true;
       clearInterval(interval);

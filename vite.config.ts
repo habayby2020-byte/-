@@ -77,9 +77,17 @@ function installedAppsPlugin() {
       // as a static endpoint at the same URL the React app already requests.
       const apiDir = path.join(distDir, 'api');
       fs.mkdirSync(apiDir, { recursive: true });
+      const catalogue = scanApps(appsDir);
       fs.writeFileSync(
         path.join(apiDir, 'apps'),
-        JSON.stringify(scanApps(appsDir)),
+        JSON.stringify(catalogue),
+        'utf8'
+      );
+
+      // Explicit .json fallback for Android's secondary WebView asset loader.
+      fs.writeFileSync(
+        path.join(distDir, 'apps-catalogue.json'),
+        JSON.stringify(catalogue),
         'utf8'
       );
     },
