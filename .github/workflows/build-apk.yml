@@ -2,6 +2,8 @@ name: Build ASTRO Android APK
 
 # APK builds remain paused; this workflow is run manually after code review.
 on:
+  push:
+    branches: [fix/android-apps-and-mini-app-discovery]
   workflow_dispatch:
 
 permissions:
