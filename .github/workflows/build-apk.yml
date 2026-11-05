@@ -1,18 +1,8 @@
 name: Build ASTRO Android APK
 
+# APK builds are paused temporarily. Run manually only when explicitly requested.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "apps/**"
-      - "public/**"
-      - "android-presentation-bridge/**"
-      - "package.json"
-      - "vite.config.ts"
-      - "capacitor.config.ts"
-      - ".github/workflows/build-apk.yml"
 
 permissions:
   contents: read
